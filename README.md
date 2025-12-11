@@ -20,8 +20,11 @@ Accidental ("n" \[natural\], "s" \[sharp\], or "l" \[flat\] \[The l is just beca
 
 Duration (In beats)
 
+Do not get rid of any of these or the notes will not play
 # On differentiation
-A new note is to be made when the previous character is not in the list of allowed characters: "abcdefglns1234567890.r"
+A new note is to be made when the previous character is not in the list of allowed characters: "abcdefglns1234567890.rpm"
 
 # On special things
 Rests are in the following format: "r" followed by a duration in beats
+
+Dynamics should follow the note if they exitst (you do not need a seperator) just write a p or f or mp or ffffff etc. right after the note. (These are not a neccessary thing to be added to the note like everything else is)
