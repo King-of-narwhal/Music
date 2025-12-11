@@ -1,6 +1,3 @@
-# TO DO:
-# IDK right now
-
 import math
 import numpy
 import sounddevice
@@ -141,9 +138,10 @@ pitches = []
 lines = 0
 i = 0
 accidentals = []
-allowed = "abcdefglns-1234567890.rpm"
+allowed = "abcdefglns-1234567890.rpm#"
 notes = []
 string = ""
+tag = False
 while i < len(user_txt):
     if user_txt[i] == "\n":
         lines += 1
@@ -198,17 +196,22 @@ while i < len(user_txt):
     #If lines >= 2 it's gonna add things to notes
     elif lines >= 2:
         char = user_txt[i]
-        allow = False
-        for j in range(len(allowed)):
-            if allowed[j] == char:
-                allow = True
-        #Continues making the current note
-        if allow:
-            string += char
-        #Appends the note to notes array if it found something it doesn't allow
-        else:
-            notes.append(string)
-            string = ""
+        if char == "#":
+            tag = True
+        if char == "\n":
+            tag = False
+        if tag == False:
+            allow = False
+            for j in range(len(allowed)):
+                if allowed[j] == char:
+                    allow = True
+            #Continues making the current note
+            if allow:
+                string += char
+            #Appends the note to notes array if it found something it doesn't allow
+            else:
+                notes.append(string)
+                string = ""
     i += 1
 
 bpm *= 4 / time1
