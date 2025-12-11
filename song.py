@@ -1,23 +1,29 @@
 # TO DO:
-# Add dynamics
+# IDK right now
 
+import math
 import numpy
 import sounddevice
 import time
+
 song = input("What is the file name for the song you would like? ")
-volume = float(input("Volume (0-10]: "))
+# Exponintially increases volume so our ears can detect it
+volume = float(input("Volume (0-20]: "))
 if volume <= 0.0:
     volume = 0.1
-elif volume > 10.0:
-    volume = 10.0
+elif volume > 20.0:
+    volume = 20.0
+volume = volume ** 2
 with open(song, "r") as file:
     user_txt = file.read()
 #Adds a newline to the end if there isn't one
 def sine_wave(frequency, length, volume):
-    return volume * numpy.sin(2 * numpy.pi * frequency * numpy.linspace(0, length, int(44100 * length), endpoint=False)) #Generates the frequency (don't ask how this works, I just googled it)
+    sample_rate = 44100
+    t = numpy.linspace(0, length, int(44100 * length), endpoint=False)
+    return volume * numpy.sin(2 * numpy.pi * frequency * t) #Generates the frequency (don't ask how this works, I just googled it)
 def note_to_pitch(note): #Note is string in format [letter][octave][accidental][duration]
     progress = 0
-    #Finds the letter, octave, accidental and length of note
+    #Finds the letter, octave, accidental, length and dynamic of the note
     i = 0
     while i < len(note):
         if progress == 0:
@@ -36,8 +42,15 @@ def note_to_pitch(note): #Note is string in format [letter][octave][accidental][
         elif progress == 3:
             j = i
             length = ""
+            dynamics = False
+            dynamic = ""
             for j in range(i, len(note)):
-                length += note[j]
+                if note[j] == "p" or note[j] == "f" or note[j] == "m":
+                    dynamics = True
+                if dynamics:
+                    dynamic += note[j]
+                else:
+                    length += note[j]
             length = float(length)
             i = j
         i += 1
@@ -117,7 +130,7 @@ def note_to_pitch(note): #Note is string in format [letter][octave][accidental][
         semitones += 1
     if letter != "a" or octave != 4 or accidental != "n":
         hertz = 440 * (2 ** (semitones / 12))
-    return hertz, length
+    return hertz, length, dynamic
 def sound_play(sin_wave):
     sounddevice.play(sin_wave, 44100)
     sounddevice.wait() #Waits for the frequency to be played
@@ -128,7 +141,7 @@ pitches = []
 lines = 0
 i = 0
 accidentals = []
-allowed = "abcdefglns1234567890.r"
+allowed = "abcdefglns-1234567890.rpm"
 notes = []
 string = ""
 while i < len(user_txt):
@@ -202,13 +215,40 @@ bpm *= 4 / time1
 
 #Builds all the sine waves first so when notes are played it does not have to do as much calculating so it doesn't get behind
 waves = []
+dynamics = "mf"
+F = 2.5
+P = 0.5
+volume2 = math.sqrt(2) / 4
 for i in range(len(notes)):
     if notes[i][0] == "r":
         waves.append(notes[i])
     else:
-        hertz, duration = note_to_pitch(notes[i])
+        hertz, duration, dynamics = note_to_pitch(notes[i])
+        mezo = False
+        f = False
+        p = False
+        if dynamics != "":
+            volume2 = math.sqrt(2)
+            #Detects if it is mezo
+            if dynamics[0] == "m":
+                mezo = True
+            for i in range(len(dynamics)):
+                # Takes the root of the volume so our ears can detect it (Has a plus one and minus one because I don't want the volume to go up when volume2 is less than one)
+                if dynamics[i] == "p":
+                    p = True
+                    volume2 = math.sqrt(volume2 + 1) - 1
+                # Takes the square of the volume so our ears can detect it (Has a plus one and minus one because I don't want the volume to go down when volume2 is less than one)
+                elif dynamics[i] == "f":
+                    f = True
+                    volume2 = (volume2 + 1) ** 2 - 1
+            if mezo:
+                if f:
+                    volume2 /= 1.5
+                if p:
+                    volume2 *= 1.5
+            volume2 /= 4
         duration *= 60 / bpm
-        wave = sine_wave(hertz, duration, volume)
+        wave = sine_wave(hertz, duration, volume * volume2)
         waves.append(wave)
 
 #Plays all the sounds! (Finally)
