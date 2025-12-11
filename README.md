@@ -28,3 +28,6 @@ A new note is to be made when the previous character is not in the list of allow
 Rests are in the following format: "r" followed by a duration in beats
 
 Dynamics should follow the note if they exitst (you do not need a seperator) just write a p or f or mp or ffffff etc. right after the note. (These are not a neccessary thing to be added to the note like everything else is)
+
+# Dependencies
+You will need to install numPy https://numpy.org/ as well as sounddevice https://python-sounddevice.readthedocs.io/en/0.5.3/
