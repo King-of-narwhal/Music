@@ -210,8 +210,9 @@ while i < len(user_txt):
                 string += char
             #Appends the note to notes array if it found something it doesn't allow
             else:
-                notes.append(string)
-                string = ""
+                if char != " " or user_txt[i + 1] != "#":
+                    notes.append(string)
+                    string = ""
     i += 1
 
 bpm *= 4 / time1
