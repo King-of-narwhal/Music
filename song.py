@@ -13,44 +13,74 @@ elif volume > 20.0:
 volume = volume ** 2
 with open(song, "r") as file:
     user_txt = file.read()
-#Adds a newline to the end if there isn't one
+#Add a newline to the end if there isn't one
 def sine_wave(frequency, length, volume):
     sample_rate = 44100
     t = numpy.linspace(0, length, int(44100 * length), endpoint=False)
     return volume * numpy.sin(2 * numpy.pi * frequency * t) #Generates the frequency (don't ask how this works, I just googled it)
-def note_to_pitch(note): #Note is string in format [letter][octave][accidental][duration]
-    progress = 0
-    #Finds the letter, octave, accidental, length and dynamic of the note
+def note_to_pitch(note, accidental_array, key): #Note is string in format [octave][letter][duration][accidental][dynamic]
+    progress = 0                                                             #These two are optional
+    #Find the letter, octave, accidental, length and dynamic of the note
     i = 0
-    while i < len(note):
-        if progress == 0:
-            letter = note[i]
-            progress += 1
-        elif progress == 1:
-            j = i
-            octave = ""
-            while note[j] != "n" and note[j] != "s" and note[j] != "l":
-                octave += note[j]
-                j += 1
-            accidental = note[j]
-            octave = int(octave)
-            progress += 2
-            i = j
-        elif progress == 3:
-            j = i
+    while i <= len(note):
+        #Get Duration, accidental & dynamic
+        if progress == 2:
             length = ""
+            accidentals = False
             dynamics = False
+            accidental = ""
             dynamic = ""
-            for j in range(i, len(note)):
-                if note[j] == "p" or note[j] == "f" or note[j] == "m":
+            for j in range(i - 1, len(note)):
+                if note[j] in "lsn":
+                    accidentals = True
+                if note[j] in "pfm":
                     dynamics = True
-                if dynamics:
+                    accidentals = False
+                if accidentals:
+                    accidental += note[j]
+                elif dynamics:
                     dynamic += note[j]
                 else:
                     length += note[j]
             length = float(length)
+            i = j + 1
+        #Get letter
+        elif progress == 1:
+            letter = note[i - 1]
+            progress += 1
+        #Get octave
+        elif progress == 0:
+            j = i
+            octave = ""
+            while note[j] not in "abcdefg":
+                octave += note[j]
+                j += 1
+            octave = int(octave)
+            progress += 1
             i = j
         i += 1
+    if accidental == "":
+        found = False
+        for i in range(len(accidental_array)):
+            if accidental_array[i][0] == letter:
+                accidental = accidental_array[i][1]
+                found = True
+        if not found:
+            for i in range(0, len(key), 2):
+                if key[i] == letter:
+                    accidental = key[i + 1]
+                    found = True
+        if not found:
+            accidental = "n"
+    else:
+        accidental_array2 = []
+        #Gets rid of any previous accidentals of the same letter
+        for i in range(len(accidental_array)):
+            if accidental_array[i][0] != letter:
+                accidental_array2.append(accidental_array[i])
+        accidental_array2.append(letter + accidental) #Adds the new accidental
+        accidental_array = accidental_array2
+    print("Octave: " + str(octave) + ", letter: " + letter + ", duration: " + str(length) + ", accidental: " + accidental + ", dynamic: " + dynamic)
     #Goes up a note then makes it flat
     flats = "degab"
     notes = "cdefgab"
@@ -127,7 +157,7 @@ def note_to_pitch(note): #Note is string in format [letter][octave][accidental][
         semitones += 1
     if letter != "a" or octave != 4 or accidental != "n":
         hertz = 440 * (2 ** (semitones / 12))
-    return hertz, length, dynamic
+    return hertz, length, dynamic, accidental_array
 def sound_play(sin_wave):
     sounddevice.play(sin_wave, 44100)
     sounddevice.wait() #Waits for the frequency to be played
@@ -141,6 +171,7 @@ accidentals = []
 allowed = "abcdefglns-1234567890.rpm#"
 notes = []
 string = ""
+key = ""
 tag = False
 while i < len(user_txt):
     if user_txt[i] == "\n":
@@ -166,7 +197,6 @@ while i < len(user_txt):
         time1 = int(time1)
         time2 = int(time2)
         i = j - 2 #Skips ahead
-    '''
     #If lines = 1, copies current line into key signature
     elif lines == 1:
         char = ""
@@ -174,14 +204,13 @@ while i < len(user_txt):
         chars = 1
         while char != "\n":
             char = user_txt[j]
-            if chars % 2 == 1 and char != "\n":
-                accidentals.append([char, user_txt[j + 1]])
+            if char != "\n":
+                key += char
             j += 1
             chars += 1
         i = j - 2 #Skips ahead
-    '''
-    #If lines = 1, copies current line into bpm
-    if lines == 1:
+    #If lines = 2, copies current line into bpm
+    if lines == 2:
         char = ""
         j = i + 1
         bpm = ""
@@ -193,8 +222,8 @@ while i < len(user_txt):
         i = j - 1
         lines += 1
         bpm = int(bpm) #Makes bpm an integer
-    #If lines >= 2 it's gonna add things to notes
-    elif lines >= 2:
+    #If lines >= 3 it's gonna add things to notes
+    elif lines >= 3:
         char = user_txt[i]
         if char == "#":
             tag = True
@@ -210,6 +239,9 @@ while i < len(user_txt):
                 string += char
             #Appends the note to notes array if it found something it doesn't allow
             else:
+                #Sets a flag for next measure
+                if char == "\n":
+                    string += "i"
                 if char != " " or user_txt[i + 1] != "#":
                     notes.append(string)
                     string = ""
@@ -223,11 +255,23 @@ dynamics = "mf"
 F = 2.5
 P = 0.5
 volume2 = math.sqrt(2) / 4
+accidental_array = []
 for i in range(len(notes)):
     if notes[i][0] == "r":
         waves.append(notes[i])
     else:
-        hertz, duration, dynamics = note_to_pitch(notes[i])
+        #Reset the accidental array if the flag to do so was set
+        if i > 0:
+            if notes[i - 1][len(notes[i - 1]) - 1] == "i":
+                accidental_array = []
+        note = notes[i]
+        #Gets rid of the i at the end if there is one
+        if note[len(note) - 1] == "i":
+            note = ""
+            for j in range(len(notes[i]) - 1):
+                note += notes[i][j]
+        hertz, duration, dynamics, accidental_array = note_to_pitch(note, accidental_array, key)
+        print(accidental_array)
         mezo = False
         f = False
         p = False
