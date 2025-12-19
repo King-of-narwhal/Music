@@ -23,7 +23,7 @@ Note letter (a-g),
 
 Duration (In beats)
 
-Things you can't get rid of:
+Things you can get rid of:
 
 Accidental ("n" \[natural\], "s" \[sharp\], or "l" \[flat\] \[The l is just because b, symbol for flat, is taken by the note b and f, short for flat, is taken by the note f\])
 
