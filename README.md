@@ -35,7 +35,7 @@ A new note is to be made when the previous character is not in the list of allow
 # On special things
 Rests are in the following format: "r" followed by a duration in beats
 
-If you use a "#" it will make everything afterwards a comment (note: if you put a space before the 
+If you use a "#" it will make everything afterwards a comment (note: if you put ONE space before the comment it will still work but anything else will not)
 
 # Dependencies
 You will need to install numPy https://numpy.org/ as well as sounddevice https://python-sounddevice.readthedocs.io/en/0.5.3/
