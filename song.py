@@ -4,6 +4,8 @@ import sounddevice
 import time
 
 song = input("What is the file name for the song you would like? ")
+with open(song, "r") as file:
+    user_txt = file.read()
 # Exponintially increases volume so our ears can detect it
 volume = float(input("Volume (0-20]: "))
 if volume <= 0.0:
@@ -11,15 +13,58 @@ if volume <= 0.0:
 elif volume > 20.0:
     volume = 20.0
 volume = volume ** 2
-with open(song, "r") as file:
-    user_txt = file.read()
-#Add a newline to the end if there isn't one
+def real_note(f0, duration, volume, instrument):
+    sample_rate = 44100
+    t = numpy.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+    wave = numpy.zeros_like(t)
+    harmonics = 10
+    instrument_harmonics = {
+            "euphonium":[1.0, 0.7, 0.5, 0.3, 0.2],
+            "trombone":[1.0, 0.7, 0.5, 0.3, 0.2],
+            "trumpet":[1.0, 0.6, 0.4, 0.3, 0.2],
+            "french horn":[1.0, 0.6, 0.4, 0.25, 0.15],
+            "tuba":[1.0, 0.7, 0.5, 0.3, 0.2],
+            "clarinet":[1.0, 0.0, 0.8, 0.0, 0.5],
+            "flute":[1.0, 0.05, 0.02, 0.01, 0.005],
+            "piano":[1.0, 0.8, 0.6, 0.5, 0.4]
+    }
+    instrument_num = -1
+    if instrument in "0123456789":
+        instrument_list = list(instrument_harmonics.keys())
+        instrument_name = instrument_list[int(instrument)]
+    else:
+        instrument_name = instrument.lower()
+    weights = instrument_harmonics[instrument_name]
+    #ADSR envelope
+    #"Settings"
+    attack = 0.01 #0.01
+    decay = 0.1 #0.1
+    sustain_level = 0.7 #0.7 
+    release = 0.1 #0.1
+
+    env = numpy.ones_like(t)
+    attack_samples = int(sample_rate * attack)
+    decay_samples = int(sample_rate * decay)
+    release_samples = int(sample_rate * release)
+    sustain_samples = len(t) - attack_samples - decay_samples - release_samples
+    env[:attack_samples] = numpy.linspace(0, 1, attack_samples)
+    env[attack_samples:attack_samples+decay_samples] = numpy.linspace(1, sustain_level, decay_samples)
+    env[attack_samples+decay_samples:attack_samples+decay_samples+sustain_samples] = sustain_level
+    env[-release_samples:] = numpy.linspace(sustain_level, 0, release_samples)
+
+    for i, weight in enumerate(weights):
+        wave += weight * numpy.sin(2 * numpy.pi * (i+1) * f0 * t)
+    wave *= env
+    wave /= numpy.max(numpy.abs(wave))
+    wave *= volume
+    return wave
+instrument = input("Choose an instrument, spell it out or take it from this list: euphonium (0), trombone (1), trumpet (2), french horn (3), tuba (4), clarinet (5), flute (6), piano (7): ")
 def sine_wave(frequency, length, volume):
     sample_rate = 44100
     t = numpy.linspace(0, length, int(44100 * length), endpoint=False)
     return volume * numpy.sin(2 * numpy.pi * frequency * t) #Generates the frequency (don't ask how this works, I just googled it)
 def note_to_pitch(note, accidental_array, key): #Note is string in format [octave][letter][duration][accidental][dynamic]
-    progress = 0                                                             #These two are optional
+    progress = 0                                                                                    #These two are optional
     #Find the letter, octave, accidental, length and dynamic of the note
     i = 0
     while i <= len(note):
@@ -116,6 +161,8 @@ def note_to_pitch(note, accidental_array, key): #Note is string in format [octav
                     letter2 = notes[i - 1]
             accidental = "n"
             letter = letter2
+            if letter == "b":
+                octave -= 1
     #Finds every note
     all_notes = []
     for i in range(len(notes)):
@@ -256,25 +303,25 @@ F = 2.5
 P = 0.5
 volume2 = math.sqrt(2) / 4
 accidental_array = []
+notes2 = []
 for i in range(len(notes)):
+    note = notes[i]
+    if i > 0:
+        if notes[i - 1][len(notes[i - 1]) - 1] == "i":
+            accidental_array = []
+    if note[len(note) - 1] == "i":
+        note = ""
+        for j in range(len(notes[i]) - 1):
+            note += notes[i][j]
     if notes[i][0] == "r":
-        waves.append(notes[i])
+        waves.append(note)
     else:
-        #Reset the accidental array if the flag to do so was set
-        if i > 0:
-            if notes[i - 1][len(notes[i - 1]) - 1] == "i":
-                accidental_array = []
-        note = notes[i]
         #Gets rid of the i at the end if there is one
-        if note[len(note) - 1] == "i":
-            note = ""
-            for j in range(len(notes[i]) - 1):
-                note += notes[i][j]
         hertz, duration, dynamics, accidental_array = note_to_pitch(note, accidental_array, key)
-        print(accidental_array)
         mezo = False
         f = False
         p = False
+        fs = 0
         if dynamics != "":
             volume2 = math.sqrt(2)
             #Detects if it is mezo
@@ -288,25 +335,32 @@ for i in range(len(notes)):
                 # Takes the square of the volume so our ears can detect it (Has a plus one and minus one because I don't want the volume to go down when volume2 is less than one)
                 elif dynamics[i] == "f":
                     f = True
-                    volume2 = (volume2 + 1) ** 2 - 1
+                    if fs <= 6:
+                        volume2 = (volume2 + 1) ** 2 - 1
+                    f += 1
+            #If the dynamic is mezo, make it closer to the opposite dynamic
             if mezo:
                 if f:
                     volume2 /= 1.5
                 if p:
                     volume2 *= 1.5
+            #Makes it quieter
             volume2 /= 4
         duration *= 60 / bpm
-        wave = sine_wave(hertz, duration, volume * volume2)
+        if duration < 0.11:
+            duration = 0.11
+        wave = real_note(hertz, duration, volume * volume2, instrument)
         waves.append(wave)
+    notes2.append(note)
 
 #Plays all the sounds! (Finally)
 for i in range(len(waves)):
-    print(notes[i])
+    print(notes2[i])
     if waves[i][0] == "r":
         duration = ""
-        for j in range(1, len(notes[i])):
-            duration += notes[i][j]
-        duration = 60 / bpm * int(duration)
+        for j in range(1, len(notes2[i])):
+            duration += notes2[i][j]
+        duration = 60 / bpm * float(duration)
         time.sleep(duration)
     else:
         sound_play(waves[i])
